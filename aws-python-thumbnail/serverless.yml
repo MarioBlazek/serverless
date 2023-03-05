@@ -13,6 +13,7 @@ provider:
     THUMBNAIL_SIZE: 128
     REGION_NAME: ${self:provider.region}
     DYNAMODB_TABLE: ${self:custom.dynamoTable}
+  
   iam:
     role:
       statements:
@@ -32,6 +33,7 @@ provider:
 
 custom:
   bucket: marek-thumbnails
+  dynamoTable: marek-thumbnails-table
   pythonRequirements:
     dockerizePip: true
 
@@ -46,6 +48,51 @@ functions:
           event: s3:ObjectCreated:*
           rules:
             - suffix: .png
+  list:
+    handler: handler.s3_get_thumbnail_urls
+    layers:
+      - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-Pillow:6
+    events:
+      - http:
+          path: images/all
+          method: get
+          cors: true
+
+  get:
+    handler: handler.s3_get_item
+    layers:
+      - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-Pillow:6
+    events:
+      - http:
+          path: images/get/{id}
+          method: get
+          cors: true
+
+  delete:
+    handler: handler.s3_delete_item
+    layers:
+      - arn:aws:lambda:us-east-1:770693421928:layer:Klayers-p38-Pillow:6
+    events:
+      - http:
+          path: images/delete/{id}
+          method: delete
+          cors: true
+
+resources:
+  Resources:
+    ImagesDynamoDbTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
 
 plugins:
   - serverless-python-requirements
